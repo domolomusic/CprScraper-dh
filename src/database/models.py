@@ -1,7 +1,7 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Boolean, ForeignKey
+import datetime
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, ForeignKey, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
 
 Base = declarative_base()
 
@@ -11,59 +11,82 @@ class Agency(Base):
     name = Column(String, unique=True, nullable=False)
     abbreviation = Column(String)
     base_url = Column(String)
-    prevailing_wage_url = Column(String) # Specific to state agencies
+    prevailing_wage_url = Column(String)
     phone = Column(String)
     email = Column(String)
-    type = Column(String) # 'federal' or 'state'
-
-    forms = relationship("Form", back_populates="agency")
+    forms = relationship("Form", back_populates="agency", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Agency(id={self.id}, name='{self.name}')>"
+        return f"<Agency(name='{self.name}')>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'abbreviation': self.abbreviation,
+            'base_url': self.base_url,
+            'prevailing_wage_url': self.prevailing_wage_url,
+            'phone': self.phone,
+            'email': self.email
+        }
 
 class Form(Base):
     __tablename__ = 'forms'
     id = Column(Integer, primary_key=True)
-    agency_id = Column(Integer, ForeignKey('agencies.id'), nullable=False)
+    agency_id = Column(Integer, ForeignKey('agencies.id'))
     name = Column(String, nullable=False)
     title = Column(String)
     url = Column(String, nullable=False)
     form_url = Column(String) # Direct link to the form PDF/document
     instructions_url = Column(String) # Link to instructions
-    check_frequency = Column(String) # e.g., 'daily', 'weekly', 'monthly'
+    check_frequency = Column(String) # e.g., daily, weekly, monthly
     contact_email = Column(String)
-    last_updated = Column(DateTime) # Last updated date from the agency's site, if available
-    last_scraped_at = Column(DateTime) # When we last scraped this form
-
+    last_scraped_at = Column(DateTime)
+    last_hash = Column(String) # Hash of the content for change detection
+    
     agency = relationship("Agency", back_populates="forms")
-    changes = relationship("Change", back_populates="form")
+    changes = relationship("Change", back_populates="form", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<Form(id={self.id}, name='{self.name}', agency_id={self.agency_id})>"
+        return f"<Form(name='{self.name}', agency='{self.agency.name if self.agency else 'N/A'}')>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'agency_id': self.agency_id,
+            'name': self.name,
+            'title': self.title,
+            'url': self.url,
+            'form_url': self.form_url,
+            'instructions_url': self.instructions_url,
+            'check_frequency': self.check_frequency,
+            'contact_email': self.contact_email,
+            'last_scraped_at': self.last_scraped_at.isoformat() if self.last_scraped_at else None,
+            'last_hash': self.last_hash
+        }
 
 class Change(Base):
     __tablename__ = 'changes'
     id = Column(Integer, primary_key=True)
-    form_id = Column(Integer, ForeignKey('forms.id'), nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
-    change_details = Column(Text, nullable=False)
-    severity = Column(String, default='medium') # e.g., 'low', 'medium', 'high', 'critical'
+    form_id = Column(Integer, ForeignKey('forms.id'))
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    change_details = Column(Text)
+    severity = Column(String) # e.g., low, medium, high, critical
     is_reviewed = Column(Boolean, default=False)
-
+    
     form = relationship("Form", back_populates="changes")
 
     def __repr__(self):
-        return f"<Change(id={self.id}, form_id={self.form_id}, timestamp='{self.timestamp}')>"
+        return f"<Change(form='{self.form.name if self.form else 'N/A'}', timestamp='{self.timestamp}')>"
 
-class MonitoringRun(Base):
-    __tablename__ = 'monitoring_runs'
-    id = Column(Integer, primary_key=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
-    status = Column(String, nullable=False) # e.g., 'success', 'failure', 'partial_success'
-    details = Column(Text) # Summary of the run, e.g., "5 forms checked, 2 changes detected"
-    duration_seconds = Column(Integer)
-    forms_checked = Column(Integer)
-    changes_detected = Column(Integer)
-
-    def __repr__(self):
-        return f"<MonitoringRun(id={self.id}, timestamp='{self.timestamp}', status='{self.status}')>"
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'form_id': self.form_id,
+            'timestamp': self.timestamp.isoformat(),
+            'change_details': self.change_details,
+            'severity': self.severity,
+            'is_reviewed': self.is_reviewed,
+            'form_name': self.form.name if self.form else None,
+            'agency_name': self.form.agency.name if self.form and self.form.agency else None
+        }
