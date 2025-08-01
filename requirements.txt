@@ -1,3 +1,9 @@
 requests
+beautifulsoup4
 selenium
 webdriver-manager
+PyYAML
+Flask
+APScheduler
+SQLAlchemy
+python-dotenv

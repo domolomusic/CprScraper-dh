@@ -1,82 +1,34 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.pool import StaticPool
-from contextlib import contextmanager
-from .models import Base
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+from src.database.models import Base
 
-# Database configuration
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "sqlite:///./data/payroll_monitor.db"
-)
+# Load environment variables from .env file
+load_dotenv()
 
-# Create engine with appropriate settings
-if DATABASE_URL.startswith("sqlite"):
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-        echo=os.getenv("DB_ECHO", "false").lower() == "true"
-    )
-else:
-    engine = create_engine(
-        DATABASE_URL,
-        pool_pre_ping=True,
-        echo=os.getenv("DB_ECHO", "false").lower() == "true"
-    )
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/payroll_monitor.db")
+DB_ECHO = os.getenv("DB_ECHO", "false").lower() == "true"
 
-# Create session factory
+engine = create_engine(DATABASE_URL, echo=DB_ECHO)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Session = scoped_session(SessionLocal)
 
-
-def create_tables():
-    """Create all database tables."""
-    Base.metadata.create_all(bind=engine)
-
-
-def drop_tables():
-    """Drop all database tables."""
-    Base.metadata.drop_all(bind=engine)
-
-
-def get_db_session():
-    """Get a database session."""
-    return Session()
-
-
-@contextmanager
-def get_db():
-    """Context manager for database sessions."""
-    session = Session()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-
-def close_db():
-    """Close database connections."""
-    Session.remove()
-    engine.dispose()
-
-
-# Initialize database on import
 def init_db():
-    """Initialize database with tables."""
-    # Ensure data directory exists
-    data_dir = os.path.dirname(DATABASE_URL.replace("sqlite:///", ""))
-    if data_dir and not os.path.exists(data_dir):
-        os.makedirs(data_dir, exist_ok=True)
-    
-    create_tables()
+    """Initializes the database by creating all tables."""
+    Base.metadata.create_all(bind=engine)
+    print(f"Database initialized at {DATABASE_URL}")
 
+def get_db():
+    """Dependency to get a database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    # This block allows you to run this file directly to initialize the database
+    # For example: python src/database/connection.py
+    print("Attempting to initialize database...")
     init_db()
-    print("Database initialized successfully!")
+    print("Database initialization complete.")
