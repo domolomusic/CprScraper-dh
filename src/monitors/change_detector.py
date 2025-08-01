@@ -1,12 +1,11 @@
-import logging
 import hashlib
+import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class ChangeDetector:
     def __init__(self):
-        logging.info("ChangeDetector initialized.")
+        logger.info("ChangeDetector initialized.")
 
     def _calculate_hash(self, content):
         """Calculates the SHA256 hash of the given content."""
@@ -14,68 +13,28 @@ class ChangeDetector:
             return None
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
-    def detect_change(self, old_content, new_content):
+    def detect_change(self, old_hash, new_content):
         """
-        Compares old and new content to detect if a change has occurred.
-        
-        Args:
-            old_content (str): The previously stored content.
-            new_content (str): The newly scraped content.
-            
-        Returns:
-            tuple: A tuple containing (is_changed, change_details).
-                   is_changed (bool): True if content has changed, False otherwise.
-                   change_details (dict): A dictionary with details about the change.
+        Detects if there's a change by comparing the old hash with the hash of new content.
+        Returns (is_changed, change_details, new_hash).
         """
-        if old_content is None and new_content is None:
-            logging.info("Both old and new content are None. No change detected.")
-            return False, {"message": "No content available for comparison."}
-        
-        if old_content is None and new_content is not None:
-            logging.info("New content found where old content was missing. Detected as a change.")
-            return True, {"message": "New content added."}
-            
-        if old_content is not None and new_content is None:
-            logging.info("Old content existed but new content is missing. Detected as a change.")
-            return True, {"message": "Content removed."}
-
-        old_hash = self._calculate_hash(old_content)
         new_hash = self._calculate_hash(new_content)
 
+        if old_hash is None:
+            if new_hash:
+                logger.info("Initial content hash recorded.")
+                return False, "Initial content recorded.", new_hash
+            else:
+                logger.warning("No content fetched for initial hash calculation.")
+                return False, "No content to record.", None
+        
+        if new_hash is None:
+            logger.warning("New content could not be fetched for comparison.")
+            return False, "New content not available for comparison.", old_hash # Keep old hash if new content failed
+
         if old_hash != new_hash:
-            logging.info("Content hash mismatch. Change detected.")
-            return True, {"message": "Content modified.", "old_hash": old_hash, "new_hash": new_hash}
+            logger.info(f"Change detected! Old hash: {old_hash[:8]}..., New hash: {new_hash[:8]}...")
+            return True, "Content hash changed.", new_hash
         else:
-            logging.info("Content hashes match. No change detected.")
-            return False, {"message": "No significant change detected."}
-
-if __name__ == '__main__':
-    detector = ChangeDetector()
-
-    # Test Case 1: No change
-    print("\n--- Test Case 1: No change ---")
-    content1 = "This is the original content."
-    content2 = "This is the original content."
-    changed, details = detector.detect_change(content1, content2)
-    print(f"Changed: {changed}, Details: {details}")
-
-    # Test Case 2: Content modified
-    print("\n--- Test Case 2: Content modified ---")
-    content3 = "This is the modified content."
-    changed, details = detector.detect_change(content1, content3)
-    print(f"Changed: {changed}, Details: {details}")
-
-    # Test Case 3: New content added (old was None)
-    print("\n--- Test Case 3: New content added ---")
-    changed, details = detector.detect_change(None, content1)
-    print(f"Changed: {changed}, Details: {details}")
-
-    # Test Case 4: Content removed (new is None)
-    print("\n--- Test Case 4: Content removed ---")
-    changed, details = detector.detect_change(content1, None)
-    print(f"Changed: {changed}, Details: {details}")
-
-    # Test Case 5: Both None
-    print("\n--- Test Case 5: Both None ---")
-    changed, details = detector.detect_change(None, None)
-    print(f"Changed: {changed}, Details: {details}")
+            logger.info("No change detected.")
+            return False, "No change.", new_hash

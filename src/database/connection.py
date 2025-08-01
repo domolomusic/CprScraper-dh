@@ -1,34 +1,40 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-from src.database.models import Base
+from sqlalchemy.orm import sessionmaker, scoped_session
+from contextlib import contextmanager
+import logging
 
-# Load environment variables from .env file
-load_dotenv()
+from src.database.models import Base # Import Base from models
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/payroll_monitor.db")
-DB_ECHO = os.getenv("DB_ECHO", "false").lower() == "true"
+logger = logging.getLogger(__name__)
+
+# Load configuration to get DATABASE_URL
+from src.utils.config_loader import ConfigLoader
+config_loader = ConfigLoader()
+app_config = config_loader.get_config()
+
+DATABASE_URL = os.getenv('DATABASE_URL', app_config.get('database', {}).get('url', 'sqlite:///./data/payroll_monitor.db'))
+DB_ECHO = os.getenv('DB_ECHO', 'false').lower() == 'true'
 
 engine = create_engine(DATABASE_URL, echo=DB_ECHO)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+ScopedSession = scoped_session(SessionLocal)
 
 def init_db():
     """Initializes the database by creating all tables."""
+    logger.info(f"Initializing database at {DATABASE_URL}...")
     Base.metadata.create_all(bind=engine)
-    print(f"Database initialized at {DATABASE_URL}")
+    logger.info("Database tables created.")
 
-def get_db():
-    """Dependency to get a database session."""
-    db = SessionLocal()
+@contextmanager
+def db_session():
+    """Provide a transactional scope around a series of operations."""
+    session = ScopedSession()
     try:
-        yield db
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
-        db.close()
-
-if __name__ == '__main__':
-    # This block allows you to run this file directly to initialize the database
-    # For example: python src/database/connection.py
-    print("Attempting to initialize database...")
-    init_db()
-    print("Database initialization complete.")
+        ScopedSession.remove()
