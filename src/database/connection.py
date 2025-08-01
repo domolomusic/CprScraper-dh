@@ -1,40 +1,55 @@
-import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
-from contextlib import contextmanager
+from sqlalchemy.exc import SQLAlchemyError
 import logging
+from contextlib import contextmanager
 
-from src.database.models import Base # Import Base from models
+# Assuming models are in src.database.models
+from src.database.models import Base
+from src.utils.config_loader import ConfigLoader
 
 logger = logging.getLogger(__name__)
 
-# Load configuration to get DATABASE_URL
-from src.utils.config_loader import ConfigLoader
+# Initialize ConfigLoader to get database URL
 config_loader = ConfigLoader()
-app_config = config_loader.get_config()
+DATABASE_URL = config_loader.get_setting('DATABASE_URL', 'sqlite:///./data/payroll_monitor.db')
+DB_ECHO = config_loader.get_setting('DB_ECHO', False) # For SQLAlchemy logging
 
-DATABASE_URL = os.getenv('DATABASE_URL', app_config.get('database', {}).get('url', 'sqlite:///./data/payroll_monitor.db'))
-DB_ECHO = os.getenv('DB_ECHO', 'false').lower() == 'true'
-
-engine = create_engine(DATABASE_URL, echo=DB_ECHO)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-ScopedSession = scoped_session(SessionLocal)
+engine = None
+Session = None
 
 def init_db():
-    """Initializes the database by creating all tables."""
-    logger.info(f"Initializing database at {DATABASE_URL}...")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created.")
+    """Initializes the database engine and creates tables if they don't exist."""
+    global engine, Session
+    try:
+        engine = create_engine(DATABASE_URL, echo=DB_ECHO)
+        Base.metadata.create_all(engine)
+        Session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
+        logger.info(f"Database initialized successfully at {DATABASE_URL}")
+    except SQLAlchemyError as e:
+        logger.error(f"Error initializing database: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during database initialization: {e}")
+        raise
 
 @contextmanager
 def db_session():
     """Provide a transactional scope around a series of operations."""
-    session = ScopedSession()
+    if Session is None:
+        init_db() # Ensure DB is initialized if not already
+
+    session = Session()
     try:
         yield session
         session.commit()
-    except Exception:
+    except SQLAlchemyError as e:
         session.rollback()
+        logger.error(f"Database transaction failed: {e}")
+        raise
+    except Exception as e:
+        session.rollback()
+        logger.error(f"An unexpected error occurred during database operation: {e}")
         raise
     finally:
-        ScopedSession.remove()
+        session.close()

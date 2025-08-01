@@ -1,6 +1,9 @@
 import yaml
 import os
 from dotenv import load_dotenv
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ConfigLoader:
     _instance = None
@@ -13,43 +16,61 @@ class ConfigLoader:
         return cls._instance
 
     def _load_config(self):
-        # Load environment variables from .env file
-        load_dotenv()
-
+        """Loads configuration from YAML file and environment variables."""
+        load_dotenv() # Load .env file
+        
         config_path = os.path.join(os.path.dirname(__file__), '../../config/agencies.yaml')
         try:
-            with open(config_path, 'r') as file:
-                raw_config = yaml.safe_load(file)
-            self._config = self._substitute_env_vars(raw_config)
+            with open(config_path, 'r') as f:
+                ConfigLoader._config = yaml.safe_load(f)
+            logger.info(f"Configuration loaded from {config_path}")
+            self._process_env_variables()
         except FileNotFoundError:
-            print(f"Error: Configuration file not found at {config_path}")
-            self._config = {}
+            logger.error(f"Configuration file not found at {config_path}")
+            ConfigLoader._config = {}
         except yaml.YAMLError as e:
-            print(f"Error parsing YAML configuration: {e}")
-            self._config = {}
+            logger.error(f"Error parsing YAML configuration file: {e}")
+            ConfigLoader._config = {}
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while loading config: {e}")
+            ConfigLoader._config = {}
 
-    def _substitute_env_vars(self, data):
-        if isinstance(data, dict):
-            return {k: self._substitute_env_vars(v) for k, v in data.items()}
-        elif isinstance(data, list):
-            return [self._substitute_env_vars(elem) for elem in data]
-        elif isinstance(data, str):
-            # Substitute environment variables in string values
-            return os.path.expandvars(data)
-        return data
+    def _process_env_variables(self):
+        """Replaces placeholder values in config with environment variables."""
+        if not ConfigLoader._config:
+            return
+
+        # Recursively replace placeholders in dictionaries and lists
+        def replace_placeholders(item):
+            if isinstance(item, dict):
+                for key, value in item.items():
+                    item[key] = replace_placeholders(value)
+            elif isinstance(item, list):
+                item = [replace_placeholders(elem) for elem in item]
+            elif isinstance(item, str) and item.startswith('${') and item.endswith('}'):
+                env_var_name = item[2:-1]
+                env_value = os.getenv(env_var_name)
+                if env_value is not None:
+                    logger.debug(f"Replacing config placeholder {item} with environment variable {env_var_name}")
+                    return env_value
+                else:
+                    logger.warning(f"Environment variable {env_var_name} not found for config placeholder {item}")
+            return item
+        
+        ConfigLoader._config = replace_placeholders(ConfigLoader._config)
 
     def get_config(self):
-        return self._config
+        """Returns the entire loaded configuration."""
+        return ConfigLoader._config
 
-    def get_setting(self, *keys):
-        """
-        Retrieves a setting from the loaded configuration using a sequence of keys.
-        Example: get_setting('notification_settings', 'email', 'smtp_server')
-        """
-        current = self._config
-        for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
+    def get_setting(self, key, default=None):
+        """Retrieves a specific setting from the configuration."""
+        keys = key.split('.')
+        value = ConfigLoader._config
+        for k in keys:
+            if isinstance(value, dict) and k in value:
+                value = value[k]
             else:
-                return None # Or raise an error, depending on desired behavior
-        return current
+                logger.warning(f"Configuration key '{key}' not found. Returning default: {default}")
+                return default
+        return value
