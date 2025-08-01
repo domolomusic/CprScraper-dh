@@ -1,10 +1,10 @@
-import logging
 import smtplib
+import ssl
+import requests
+import logging
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import requests
-import os
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -14,163 +14,169 @@ class Notifier:
         self.notification_settings = self.config_loader.get_setting('notification_settings')
         logger.info("Notifier initialized.")
 
-    def send_alert(self, change):
-        """Sends a notification for a detected change."""
-        logger.info(f"Attempting to send alert for change ID: {change.id}")
-        if not self.notification_settings:
-            logger.warning("Notification settings not found in config. Skipping alerts.")
-            return
+    def _send_email(self, subject, body, to_addresses):
+        """Sends an email notification."""
+        email_config = self.notification_settings.get('email', {})
+        if not email_config.get('enabled'):
+            logger.info("Email notifications are disabled.")
+            return False
 
-        if self.notification_settings.get('email', {}).get('enabled'):
-            self._send_email_alert(change)
-        if self.notification_settings.get('slack', {}).get('enabled'):
-            self._send_slack_alert(change)
-        if self.notification_settings.get('teams', {}).get('enabled'):
-            self._send_teams_alert(change)
+        smtp_server = email_config.get('smtp_server')
+        smtp_port = email_config.get('smtp_port')
+        username = os.getenv('SMTP_USERNAME') or email_config.get('username')
+        password = os.getenv('SMTP_PASSWORD') or email_config.get('password')
+        from_address = os.getenv('FROM_EMAIL') or email_config.get('from_address')
 
-    def _send_email_alert(self, change):
-        email_settings = self.notification_settings.get('email', {})
-        if not email_settings.get('enabled'):
-            return
+        if not all([smtp_server, smtp_port, username, password, from_address, to_addresses]):
+            logger.error("Missing email configuration or credentials. Cannot send email.")
+            return False
 
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_address
+        msg["To"] = ", ".join(to_addresses)
+
+        # Attach HTML body
+        msg.attach(MIMEText(body, "html"))
+
+        context = ssl.create_default_context()
         try:
-            msg = MIMEMultipart("alternative")
-            msg['Subject'] = f"Payroll Monitor Alert: Change Detected for {change.form.name}"
-            msg['From'] = email_settings.get('from_address')
-            msg['To'] = ", ".join(email_settings.get('to_addresses', []))
-
-            text = f"""
-            A change has been detected for:
-            Form: {change.form.name} - {change.form.title}
-            Agency: {change.form.agency.name}
-            Timestamp: {change.timestamp.strftime('%Y-%m-%d %H:%M:%S')} UTC
-            Severity: {change.severity}
-            Details: {change.change_details}
-            Form URL: {change.form.url}
-            """
-            html = f"""
-            <html>
-                <body>
-                    <p>A change has been detected for:</p>
-                    <ul>
-                        <li><strong>Form:</strong> {change.form.name} - {change.form.title}</li>
-                        <li><strong>Agency:</strong> {change.form.agency.name}</li>
-                        <li><strong>Timestamp:</strong> {change.timestamp.strftime('%Y-%m-%d %H:%M:%S')} UTC</li>
-                        <li><strong>Severity:</strong> <span style="color:{self._get_severity_color(change.severity)};font-weight:bold;">{change.severity.upper()}</span></li>
-                        <li><strong>Details:</strong> {change.change_details}</li>
-                        <li><strong>Form URL:</strong> <a href="{change.form.url}">{change.form.url}</a></li>
-                    </ul>
-                    <p>Please review the dashboard for more details.</p>
-                </body>
-            </html>
-            """
-            msg.attach(MIMEText(text, 'plain'))
-            msg.attach(MIMEText(html, 'html'))
-
-            with smtplib.SMTP(email_settings.get('smtp_server'), email_settings.get('smtp_port')) as server:
-                server.starttls()
-                server.login(email_settings.get('username'), email_settings.get('password'))
-                server.sendmail(msg['From'], email_settings.get('to_addresses'), msg.as_string())
-            logger.info(f"Email alert sent for change ID: {change.id}")
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls(context=context)
+                server.login(username, password)
+                server.sendmail(from_address, to_addresses, msg.as_string())
+            logger.info(f"Email sent successfully to {', '.join(to_addresses)}")
+            return True
         except Exception as e:
-            logger.error(f"Failed to send email alert for change ID {change.id}: {e}")
+            logger.error(f"Failed to send email: {e}")
+            return False
 
-    def _send_slack_alert(self, change):
-        slack_settings = self.notification_settings.get('slack', {})
-        if not slack_settings.get('enabled'):
-            return
-        webhook_url = slack_settings.get('webhook_url')
+    def _send_slack_webhook(self, message):
+        """Sends a Slack notification via webhook."""
+        slack_config = self.notification_settings.get('slack', {})
+        if not slack_config.get('enabled'):
+            logger.info("Slack notifications are disabled.")
+            return False
+
+        webhook_url = os.getenv('SLACK_WEBHOOK_URL') or slack_config.get('webhook_url')
         if not webhook_url:
-            logger.warning("Slack webhook URL not configured. Skipping Slack alert.")
-            return
+            logger.error("Slack webhook URL is not configured. Cannot send Slack notification.")
+            return False
 
+        payload = {
+            "text": message,
+            "channel": slack_config.get('channel')
+        }
         try:
-            payload = {
-                "text": f"🚨 *Payroll Monitor Alert: Change Detected for {change.form.name}* 🚨\n"
-                        f"• *Agency:* {change.form.agency.name}\n"
-                        f"• *Form:* {change.form.title} ({change.form.name})\n"
-                        f"• *Severity:* {change.severity.upper()}\n"
-                        f"• *Details:* {change.change_details}\n"
-                        f"• *Link:* <{change.form.url}|View Form>\n"
-                        f"• *Dashboard:* <{os.getenv('APP_BASE_URL', 'http://localhost:8000')}/form/{change.form.id}|View Details on Dashboard>"
-            }
-            response = requests.post(webhook_url, json=payload)
+            response = requests.post(webhook_url, json=payload, timeout=10)
             response.raise_for_status()
-            logger.info(f"Slack alert sent for change ID: {change.id}")
+            logger.info("Slack notification sent successfully.")
+            return True
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to send Slack alert for change ID {change.id}: {e}")
+            logger.error(f"Failed to send Slack notification: {e}")
+            return False
 
-    def _send_teams_alert(self, change):
-        teams_settings = self.notification_settings.get('teams', {})
-        if not teams_settings.get('enabled'):
-            return
-        webhook_url = teams_settings.get('webhook_url')
+    def _send_teams_webhook(self, message):
+        """Sends a Microsoft Teams notification via webhook."""
+        teams_config = self.notification_settings.get('teams', {})
+        if not teams_config.get('enabled'):
+            logger.info("Teams notifications are disabled.")
+            return False
+
+        webhook_url = os.getenv('TEAMS_WEBHOOK_URL') or teams_config.get('webhook_url')
         if not webhook_url:
-            logger.warning("Teams webhook URL not configured. Skipping Teams alert.")
-            return
+            logger.error("Teams webhook URL is not configured. Cannot send Teams notification.")
+            return False
 
+        # Teams expects a specific JSON structure for messages
+        payload = {
+            "text": message
+        }
         try:
-            payload = {
-                "type": "MessageCard",
-                "context": "http://schema.org/extensions",
-                "summary": f"Payroll Monitor Alert: Change Detected for {change.form.name}",
-                "sections": [
-                    {
-                        "activityTitle": f"🚨 Change Detected: {change.form.name} - {change.form.title}",
-                        "activitySubtitle": f"Agency: {change.form.agency.name}",
-                        "facts": [
-                            {"name": "Severity", "value": change.severity.upper()},
-                            {"name": "Timestamp", "value": change.timestamp.strftime('%Y-%m-%d %H:%M:%S') + " UTC"},
-                            {"name": "Details", "value": change.change_details}
-                        ],
-                        "markdown": True
-                    }
-                ],
-                "potentialAction": [
-                    {
-                        "@type": "OpenUri",
-                        "name": "View Form",
-                        "targets": [{"os": "default", "uri": change.form.url}]
-                    },
-                    {
-                        "@type": "OpenUri",
-                        "name": "View on Dashboard",
-                        "targets": [{"os": "default", "uri": f"{os.getenv('APP_BASE_URL', 'http://localhost:8000')}/form/{change.form.id}"}]
-                    }
-                ]
-            }
-            response = requests.post(webhook_url, json=payload)
+            response = requests.post(webhook_url, json=payload, timeout=10)
             response.raise_for_status()
-            logger.info(f"Teams alert sent for change ID: {change.id}")
+            logger.info("Teams notification sent successfully.")
+            return True
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to send Teams alert for change ID {change.id}: {e}")
+            logger.error(f"Failed to send Teams notification: {e}")
+            return False
+
+    def send_alert(self, change):
+        """Sends an alert for a detected change."""
+        subject = f"🚨 Payroll Form Change Detected: {change.form.name} ({change.form.agency.abbreviation})"
+        
+        # Basic HTML body for email
+        email_body = f"""
+        <html>
+        <body>
+            <p>A change has been detected for the following payroll form:</p>
+            <ul>
+                <li><strong>Agency:</strong> {change.form.agency.name} ({change.form.agency.abbreviation})</li>
+                <li><strong>Form Name:</strong> {change.form.name}</li>
+                <li><strong>Form Title:</strong> {change.form.title}</li>
+                <li><strong>Change Timestamp:</strong> {change.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}</li>
+                <li><strong>Severity:</strong> <span style="color: {'red' if change.severity == 'critical' else 'orange' if change.severity == 'high' else 'yellow' if change.severity == 'medium' else 'gray'}; font-weight: bold;">{change.severity.upper()}</span></li>
+                <li><strong>Details:</strong> {change.change_details}</li>
+                <li><strong>Form URL:</strong> <a href="{change.form.url}">{change.form.url}</a></li>
+                {f'<li><strong>Direct Form URL:</strong> <a href="{change.form.form_url}">{change.form.form_url}</a></li>' if change.form.form_url else ''}
+                {f'<li><strong>Instructions URL:</strong> <a href="{change.form.instructions_url}">{change.form.instructions_url}</a></li>' if change.form.instructions_url else ''}
+            </ul>
+            <p>Please review the change and assess its impact.</p>
+            <p>This is an automated notification from the Payroll Monitoring System.</p>
+        </body>
+        </html>
+        """
+
+        # Plain text message for Slack/Teams
+        plain_message = (
+            f"🚨 Payroll Form Change Detected!\n"
+            f"Agency: {change.form.agency.name} ({change.form.agency.abbreviation})\n"
+            f"Form: {change.form.name} - {change.form.title}\n"
+            f"Timestamp: {change.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+            f"Severity: {change.severity.upper()}\n"
+            f"Details: {change.change_details}\n"
+            f"URL: {change.form.url}"
+        )
+
+        # Send to configured channels
+        to_addresses = self.notification_settings.get('email', {}).get('to_addresses', [])
+        if to_addresses:
+            self._send_email(subject, email_body, to_addresses)
+        
+        if self.notification_settings.get('slack', {}).get('enabled'):
+            self._send_slack_webhook(plain_message)
+        
+        if self.notification_settings.get('teams', {}).get('enabled'):
+            self._send_teams_webhook(plain_message)
 
     def test_notifications(self):
-        logger.info("Sending test notifications...")
-        # Create a dummy change object for testing
-        class DummyAgency:
-            name = "Test Agency"
-        class DummyForm:
-            name = "TEST-FORM-001"
-            title = "Test Certified Payroll Report"
-            url = "http://example.com/test-form"
-            agency = DummyAgency()
-        class DummyChange:
-            id = 0
-            form = DummyForm()
-            timestamp = datetime.utcnow()
-            change_details = "This is a test notification from the Payroll Monitoring System."
-            severity = "low" # Can be 'low', 'medium', 'high', 'critical'
-        
-        dummy_change = DummyChange()
-        self.send_alert(dummy_change)
-        logger.info("Test notifications attempt complete.")
+        """Sends a test notification to all configured channels."""
+        logger.info("Attempting to send test notifications...")
+        test_subject = "Payroll Monitor Test Notification"
+        test_email_body = """
+        <html>
+        <body>
+            <p>This is a test email from the Payroll Monitoring System.</p>
+            <p>If you received this, email notifications are configured correctly.</p>
+        </body>
+        </html>
+        """
+        test_plain_message = "This is a test notification from the Payroll Monitoring System. If you received this, notifications are configured correctly."
 
-    def _get_severity_color(self, severity):
-        colors = {
-            'critical': '#FF0000', # Red
-            'high': '#FFA500',     # Orange
-            'medium': '#FFFF00',   # Yellow
-            'low': '#008000'       # Green
-        }
-        return colors.get(severity.lower(), '#808080') # Default to gray
+        email_to_addresses = self.notification_settings.get('email', {}).get('to_addresses', [])
+        if email_to_addresses:
+            self._send_email(test_subject, test_email_body, email_to_addresses)
+        else:
+            logger.warning("No email recipients configured for test notification.")
+
+        if self.notification_settings.get('slack', {}).get('enabled'):
+            self._send_slack_webhook(test_plain_message)
+        else:
+            logger.warning("Slack notifications are disabled for test notification.")
+        
+        if self.notification_settings.get('teams', {}).get('enabled'):
+            self._send_teams_webhook(test_plain_message)
+        else:
+            logger.warning("Teams notifications are disabled for test notification.")
+        
+        logger.info("Test notification attempts completed. Check logs for success/failure.")
