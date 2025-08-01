@@ -15,7 +15,7 @@ from src.monitors.web_scraper import WebScraper
 from src.monitors.change_detector import ChangeDetector
 from src.notifications.notifier import Notifier
 from src.scheduler.monitoring_scheduler import MonitoringScheduler
-from src.api.main import app as flask_app, set_scheduler_instance # Import Flask app and setter
+from src.api.main import app as flask_app, set_scheduler_instance, set_monitor_function # Import Flask app and setters
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -214,6 +214,9 @@ def run_tests():
 
 
 if __name__ == "__main__":
+    # Set the monitor function for the API before any commands are run
+    set_monitor_function(monitor_all_forms)
+
     parser = argparse.ArgumentParser(description="Payroll Monitoring System CLI")
     parser.add_argument('command', choices=['init-db', 'load-data', 'monitor', 'start', 'dashboard', 'scheduler', 'test'],
                         help="Command to execute")
