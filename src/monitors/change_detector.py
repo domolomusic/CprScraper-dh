@@ -11,30 +11,44 @@ class ChangeDetector:
         """Calculates the SHA256 hash of the given content."""
         if content is None:
             return None
-        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+        # Ensure content is bytes for hashing
+        if isinstance(content, str):
+            content = content.encode('utf-8')
+        return hashlib.sha256(content).hexdigest()
 
-    def detect_change(self, old_hash, new_content):
+    def detect_change(self, old_hash, new_content=None, new_hash_value=None):
         """
-        Detects if there's a change by comparing the old hash with the hash of new content.
-        Returns (is_changed, change_details, new_hash).
+        Detects if there's a change by comparing the old hash with the hash of new content
+        or a provided new hash value.
+        Returns (is_changed, change_details, final_new_hash).
         """
-        new_hash = self._calculate_hash(new_content)
+        final_new_hash = None
+
+        if new_hash_value:
+            final_new_hash = new_hash_value
+            logger.debug(f"Using provided new hash value: {final_new_hash[:8]}...")
+        elif new_content is not None:
+            final_new_hash = self._calculate_hash(new_content)
+            logger.debug(f"Calculated new hash from content: {final_new_hash[:8]}...")
+        else:
+            logger.warning("Neither new_content nor new_hash_value provided for change detection.")
+            return False, "No new content or hash to compare.", old_hash # Keep old hash if no new data
 
         if old_hash is None:
-            if new_hash:
+            if final_new_hash:
                 logger.info("Initial content hash recorded.")
-                return False, "Initial content recorded.", new_hash
+                return False, "Initial content recorded.", final_new_hash
             else:
-                logger.warning("No content fetched for initial hash calculation.")
+                logger.warning("No content/hash fetched for initial recording.")
                 return False, "No content to record.", None
         
-        if new_hash is None:
-            logger.warning("New content could not be fetched for comparison.")
-            return False, "New content not available for comparison.", old_hash # Keep old hash if new content failed
+        if final_new_hash is None:
+            logger.warning("New content/hash could not be fetched for comparison.")
+            return False, "New content/hash not available for comparison.", old_hash # Keep old hash if new data failed
 
-        if old_hash != new_hash:
-            logger.info(f"Change detected! Old hash: {old_hash[:8]}..., New hash: {new_hash[:8]}...")
-            return True, "Content hash changed.", new_hash
+        if old_hash != final_new_hash:
+            logger.info(f"Change detected! Old hash: {old_hash[:8]}..., New hash: {final_new_hash[:8]}...")
+            return True, "Content hash changed.", final_new_hash
         else:
             logger.info("No change detected.")
-            return False, "No change.", new_hash
+            return False, "No change.", final_new_hash

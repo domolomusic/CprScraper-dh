@@ -102,38 +102,66 @@ def monitor_all_forms():
         forms = session.query(Form).all()
         for form in forms:
             logger.info(f"Monitoring form: {form.name} from {form.agency.name}")
+            
+            target_url = form.form_url if form.form_url else form.url
+            if not target_url:
+                logger.warning(f"Skipping form {form.name}: No URL configured.")
+                continue
+
+            new_content = None
+            new_hash_value = None
+
             try:
-                current_content = scraper.fetch_content(form.url)
-                if current_content:
-                    is_changed, change_details, new_hash = detector.detect_change(form.last_hash, current_content)
-                    
-                    if is_changed:
-                        logger.warning(f"Change detected for {form.name}!")
-                        # Determine severity (simple example, could be more complex)
-                        severity = "medium" if "updated" in change_details.lower() else "high"
-                        
-                        change = Change(
-                            form_id=form.id,
-                            timestamp=datetime.utcnow(),
-                            change_details=change_details,
-                            severity=severity
-                        )
-                        session.add(change)
-                        session.commit() # Commit immediately to get change ID for notification
-                        
-                        notifier.send_alert(change)
-                        logger.info(f"Alert sent for change on {form.name}.")
-                    else:
-                        logger.info(f"No change detected for {form.name}.")
-                    
-                    form.last_hash = new_hash
-                    form.last_scraped_at = datetime.utcnow()
-                    session.add(form)
-                    session.commit()
+                if target_url.lower().endswith('.pdf'):
+                    logger.info(f"Fetching PDF hash for {form.name} from {target_url}")
+                    new_hash_value = scraper.get_pdf_hash(target_url)
+                    if not new_hash_value:
+                        logger.error(f"Failed to get PDF hash for {form.name} from {target_url}")
+                        continue
                 else:
-                    logger.error(f"Failed to fetch content for {form.name} at {form.url}")
+                    logger.info(f"Fetching HTML content for {form.name} from {target_url}")
+                    # For now, not using JS rendering by default. Can be added as a form property.
+                    new_content = scraper.fetch_content(target_url, use_js_rendering=False) 
+                    if not new_content:
+                        logger.error(f"Failed to fetch HTML content for {form.name} from {target_url}")
+                        continue
+                
+                is_changed, change_details, final_new_hash = detector.detect_change(
+                    form.last_hash, 
+                    new_content=new_content, 
+                    new_hash_value=new_hash_value
+                )
+                
+                if is_changed:
+                    logger.warning(f"Change detected for {form.name}! Details: {change_details}")
+                    # Determine severity (simple example, could be more complex based on change_details)
+                    severity = "medium" 
+                    if "critical" in change_details.lower():
+                        severity = "critical"
+                    elif "major" in change_details.lower() or "significant" in change_details.lower():
+                        severity = "high"
+                    
+                    change = Change(
+                        form_id=form.id,
+                        timestamp=datetime.utcnow(),
+                        change_details=change_details,
+                        severity=severity
+                    )
+                    session.add(change)
+                    session.commit() # Commit immediately to get change ID for notification
+                    
+                    notifier.send_alert(change)
+                    logger.info(f"Alert sent for change on {form.name}.")
+                else:
+                    logger.info(f"No change detected for {form.name}.")
+                
+                form.last_hash = final_new_hash
+                form.last_scraped_at = datetime.utcnow()
+                session.add(form)
+                session.commit()
+
             except Exception as e:
-                logger.error(f"Error monitoring {form.name}: {e}")
+                logger.error(f"Error monitoring {form.name} at {target_url}: {e}")
     logger.info("Full monitoring run completed.")
 
 def run_dashboard():
