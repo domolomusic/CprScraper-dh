@@ -1,0 +1,25 @@
+{
+  "name": "payroll-monitoring-system",
+  "version": "1.0.0",
+  "description": "An AI-powered monitoring system for government certified payroll reporting requirements.",
+  "main": "main.py",
+  "scripts": {
+    "start": "python main.py start",
+    "init-db": "python main.py init-db",
+    "load-data": "python main.py load-data",
+    "monitor": "python main.py monitor",
+    "dashboard": "python main.py dashboard",
+    "scheduler": "python main.py scheduler",
+    "test": "python main.py test"
+  },
+  "keywords": [
+    "python",
+    "flask",
+    "web-scraping",
+    "ai",
+    "payroll",
+    "monitoring"
+  ],
+  "author": "",
+  "license": "MIT"
+}
