@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def main():
     parser = argparse.ArgumentParser(description="Payroll Monitoring System")
-    parser.add_argument("command", choices=["init-db", "load-data", "monitor", "dashboard", "scheduler", "test"],
+    parser.add_argument("command", choices=["init-db", "load-data", "monitor", "dashboard", "scheduler", "test", "start"],
                         help="Command to execute")
 
     args = parser.parse_args()
@@ -81,9 +81,6 @@ def main():
         logging.info("Monitoring check complete.")
     elif args.command == "dashboard":
         logging.info("Starting web dashboard...")
-        # This will run the Flask app
-        # For development, you might use: flask_app.run(debug=True, port=8000)
-        # For production, use a WSGI server like Gunicorn
         from werkzeug.serving import run_simple
         run_simple('0.0.0.0', 8000, flask_app, use_reloader=True, use_debugger=True)
     elif args.command == "scheduler":
@@ -103,6 +100,12 @@ def main():
         print("No specific system tests implemented yet beyond component self-tests.")
         print("You can run individual component tests like: python src/monitors/web_scraper.py")
         print("And: python src/monitors/change_detector.py")
+    elif args.command == "start": # New command to start the system
+        logging.info("Starting the Payroll Monitoring System (Dashboard)...")
+        # For now, 'start' will just launch the dashboard.
+        # The scheduler can be integrated here later if needed to run concurrently.
+        from werkzeug.serving import run_simple
+        run_simple('0.0.0.0', 8000, flask_app, use_reloader=True, use_debugger=True)
     else:
         parser.print_help()
 
