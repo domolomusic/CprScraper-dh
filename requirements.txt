@@ -1,9 +1,8 @@
-PyYAML
-python-dotenv
-Flask
-SQLAlchemy
-APScheduler
-requests
-BeautifulSoup4
-selenium
-psycopg2-binary
+Flask==2.3.2
+SQLAlchemy==2.0.23
+PyYAML==6.0.1
+requests==2.31.0
+APScheduler==3.10.4
+python-dotenv==1.0.0
+selenium==4.15.2
+webdriver-manager==4.0.1
