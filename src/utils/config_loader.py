@@ -1,225 +1,123 @@
-import os
 import yaml
-from typing import Dict, List, Optional
-from pathlib import Path
+import os
+import logging
+from sqlalchemy.orm import Session
+from src.database.models import Agency, Form
+from src.database.connection import SessionLocal
 
-def load_agency_config(config_path: str = None) -> Dict:
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def load_agencies_from_yaml(db: Session, config_path='config/agencies.yaml'):
     """
-    Load agency configuration from YAML file.
+    Loads agency and form data from a YAML file into the database.
     
     Args:
-        config_path: Path to the configuration file. If None, uses default.
-        
-    Returns:
-        Dictionary containing agency configuration data.
+        db (Session): The SQLAlchemy database session.
+        config_path (str): The path to the YAML configuration file.
     """
-    if config_path is None:
-        # Default to config/agencies.yaml relative to project root
-        project_root = Path(__file__).parent.parent.parent
-        config_path = project_root / "config" / "agencies.yaml"
-    
-    try:
-        with open(config_path, 'r', encoding='utf-8') as file:
-            config = yaml.safe_load(file)
-        return config or {}
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
-    except yaml.YAMLError as e:
-        raise ValueError(f"Invalid YAML in configuration file: {e}")
+    if not os.path.exists(config_path):
+        logging.error(f"Configuration file not found at {config_path}")
+        return
 
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
 
-def get_federal_agencies(config: Dict = None) -> Dict:
-    """Get federal agencies from configuration."""
-    if config is None:
-        config = load_agency_config()
-    return config.get('federal', {})
+    if not config:
+        logging.warning("YAML configuration is empty.")
+        return
 
+    logging.info(f"Loading agencies and forms from {config_path} into the database...")
 
-def get_state_agencies(config: Dict = None) -> Dict:
-    """Get state agencies from configuration."""
-    if config is None:
-        config = load_agency_config()
-    return config.get('states', {})
+    # Process Federal Agencies
+    if 'federal' in config:
+        for agency_key, agency_data in config['federal'].items():
+            _process_agency(db, agency_data, is_federal=True)
 
-
-def get_agency_by_name(agency_name: str, config: Dict = None) -> Optional[Dict]:
-    """
-    Get specific agency configuration by name.
-    
-    Args:
-        agency_name: Name or abbreviation of the agency
-        config: Configuration dictionary (optional)
-        
-    Returns:
-        Agency configuration or None if not found
-    """
-    if config is None:
-        config = load_agency_config()
-    
-    # Check federal agencies
-    federal = get_federal_agencies(config)
-    for agency_key, agency_data in federal.items():
-        if (agency_key.lower() == agency_name.lower() or 
-            agency_data.get('name', '').lower() == agency_name.lower()):
-            return agency_data
-    
-    # Check state agencies
-    states = get_state_agencies(config)
-    for state_key, state_data in states.items():
-        if (state_key.lower() == agency_name.lower() or
-            state_data.get('name', '').lower() == agency_name.lower() or
-            state_data.get('abbreviation', '').lower() == agency_name.lower()):
-            return state_data
-    
-    return None
-
-
-def get_monitoring_settings(config: Dict = None) -> Dict:
-    """Get monitoring configuration settings."""
-    if config is None:
-        config = load_agency_config()
-    return config.get('monitoring_settings', {})
-
-
-def get_notification_settings(config: Dict = None) -> Dict:
-    """Get notification configuration settings."""
-    if config is None:
-        config = load_agency_config()
-    return config.get('notification_settings', {})
-
-
-def get_all_forms(config: Dict = None) -> List[Dict]:
-    """
-    Get all forms from all agencies.
-    
-    Returns:
-        List of form dictionaries with agency context
-    """
-    if config is None:
-        config = load_agency_config()
-    
-    all_forms = []
-    
-    # Process federal agencies
-    federal = get_federal_agencies(config)
-    for agency_key, agency_data in federal.items():
-        forms = agency_data.get('forms', [])
-        for form in forms:
-            form_data = form.copy()
-            form_data['agency_key'] = agency_key
-            form_data['agency_name'] = agency_data.get('name')
-            form_data['agency_type'] = 'federal'
-            form_data['agency_contact'] = agency_data.get('contact', {})
-            all_forms.append(form_data)
-    
-    # Process state agencies
-    states = get_state_agencies(config)
-    for state_key, state_data in states.items():
-        forms = state_data.get('forms', [])
-        for form in forms:
-            form_data = form.copy()
-            form_data['agency_key'] = state_key
-            form_data['agency_name'] = state_data.get('name')
-            form_data['agency_type'] = 'state'
-            form_data['agency_abbreviation'] = state_data.get('abbreviation')
-            form_data['agency_contact'] = state_data.get('contact', {})
-            all_forms.append(form_data)
-    
-    return all_forms
-
-
-def validate_config(config: Dict = None) -> List[str]:
-    """
-    Validate configuration for required fields and structure.
-    
-    Returns:
-        List of validation errors (empty if valid)
-    """
-    if config is None:
-        config = load_agency_config()
-    
-    errors = []
-    
-    # Check required top-level keys
-    required_keys = ['federal', 'states', 'monitoring_settings', 'notification_settings']
-    for key in required_keys:
-        if key not in config:
-            errors.append(f"Missing required top-level key: {key}")
-    
-    # Validate federal agencies
-    federal = config.get('federal', {})
-    for agency_key, agency_data in federal.items():
-        if not isinstance(agency_data, dict):
-            errors.append(f"Federal agency '{agency_key}' must be a dictionary")
-            continue
+    # Process State Agencies
+    if 'states' in config:
+        for agency_key, agency_data in config['states'].items():
+            _process_agency(db, agency_data, is_federal=False)
             
-        required_agency_fields = ['name', 'base_url']
-        for field in required_agency_fields:
-            if field not in agency_data:
-                errors.append(f"Federal agency '{agency_key}' missing required field: {field}")
-    
-    # Validate state agencies
-    states = config.get('states', {})
-    for state_key, state_data in states.items():
-        if not isinstance(state_data, dict):
-            errors.append(f"State agency '{state_key}' must be a dictionary")
-            continue
-            
-        required_state_fields = ['name', 'abbreviation', 'base_url']
-        for field in required_state_fields:
-            if field not in state_data:
-                errors.append(f"State agency '{state_key}' missing required field: {field}")
-    
-    return errors
+    db.commit()
+    logging.info("Finished loading agencies and forms.")
 
+def _process_agency(db: Session, agency_data: dict, is_federal: bool):
+    """Helper to process individual agency data and its forms."""
+    agency_name = agency_data.get('name')
+    if not agency_name:
+        logging.warning(f"Skipping agency due to missing 'name': {agency_data}")
+        return
 
-def expand_environment_variables(config: Dict) -> Dict:
-    """
-    Expand environment variables in configuration values.
-    
-    Args:
-        config: Configuration dictionary
-        
-    Returns:
-        Configuration with environment variables expanded
-    """
-    def expand_value(value):
-        if isinstance(value, str):
-            return os.path.expandvars(value)
-        elif isinstance(value, dict):
-            return {k: expand_value(v) for k, v in value.items()}
-        elif isinstance(value, list):
-            return [expand_value(item) for item in value]
-        else:
-            return value
-    
-    return expand_value(config)
+    agency = db.query(Agency).filter_by(name=agency_name).first()
+    if not agency:
+        agency = Agency(
+            name=agency_name,
+            abbreviation=agency_data.get('abbreviation'),
+            base_url=agency_data.get('base_url'),
+            prevailing_wage_url=agency_data.get('prevailing_wage_url'),
+            phone=agency_data.get('contact', {}).get('phone'),
+            email=agency_data.get('contact', {}).get('email')
+        )
+        db.add(agency)
+        db.flush() # Flush to get agency.id for forms
+        logging.info(f"Added new agency: {agency.name}")
+    else:
+        # Update existing agency details if necessary
+        agency.abbreviation = agency_data.get('abbreviation', agency.abbreviation)
+        agency.base_url = agency_data.get('base_url', agency.base_url)
+        agency.prevailing_wage_url = agency_data.get('prevailing_wage_url', agency.prevailing_wage_url)
+        agency.phone = agency_data.get('contact', {}).get('phone', agency.phone)
+        agency.email = agency_data.get('contact', {}).get('email', agency.email)
+        logging.info(f"Updated existing agency: {agency.name}")
 
+    for form_data in agency_data.get('forms', []):
+        _process_form(db, agency, form_data)
 
-if __name__ == "__main__":
-    # Test the configuration loader
+def _process_form(db: Session, agency: Agency, form_data: dict):
+    """Helper to process individual form data."""
+    form_name = form_data.get('name')
+    form_title = form_data.get('title')
+    form_url = form_data.get('url')
+
+    if not all([form_name, form_title, form_url]):
+        logging.warning(f"Skipping form due to missing required fields (name, title, url): {form_data}")
+        return
+
+    form = db.query(Form).filter_by(agency_id=agency.id, name=form_name).first()
+    if not form:
+        form = Form(
+            agency_id=agency.id,
+            name=form_name,
+            title=form_title,
+            url=form_url,
+            form_url=form_data.get('form_url'),
+            instructions_url=form_data.get('instructions_url'),
+            check_frequency=form_data.get('check_frequency', "weekly"),
+            contact_email=form_data.get('contact_email')
+        )
+        db.add(form)
+        logging.info(f"Added new form: {form.name} for {agency.name}")
+    else:
+        # Update existing form details if necessary
+        form.title = form_data.get('title', form.title)
+        form.url = form_data.get('url', form.url)
+        form.form_url = form_data.get('form_url', form.form_url)
+        form.instructions_url = form_data.get('instructions_url', form.instructions_url)
+        form.check_frequency = form_data.get('check_frequency', form.check_frequency)
+        form.contact_email = form_data.get('contact_email', form.contact_email)
+        logging.info(f"Updated existing form: {form.name} for {agency.name}")
+
+if __name__ == '__main__':
+    # Example usage for testing the config loader
+    # This will attempt to load data into your configured database
+    print("Running config_loader.py directly for testing...")
+    db_session = SessionLocal()
     try:
-        config = load_agency_config()
-        print("Configuration loaded successfully!")
-        
-        # Validate configuration
-        errors = validate_config(config)
-        if errors:
-            print("Configuration errors found:")
-            for error in errors:
-                print(f"  - {error}")
-        else:
-            print("Configuration is valid!")
-        
-        # Print summary
-        federal = get_federal_agencies(config)
-        states = get_state_agencies(config)
-        all_forms = get_all_forms(config)
-        
-        print(f"\nSummary:")
-        print(f"  Federal agencies: {len(federal)}")
-        print(f"  State agencies: {len(states)}")
-        print(f"  Total forms: {len(all_forms)}")
-        
+        load_agencies_from_yaml(db_session)
+        print("Configuration loaded successfully. Check your database.")
     except Exception as e:
-        print(f"Error loading configuration: {e}")
+        print(f"An error occurred: {e}")
+        db_session.rollback()
+    finally:
+        db_session.close()
