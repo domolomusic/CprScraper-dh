@@ -4,7 +4,7 @@
   "description": "An AI-powered monitoring system for government certified payroll reporting requirements.",
   "main": "main.py",
   "scripts": {
-    "start": "python main.py start",
+    "start": "python main.py init-db && python main.py load-data && python main.py start",
     "init-db": "python main.py init-db",
     "load-data": "python main.py load-data",
     "monitor": "python main.py monitor",
