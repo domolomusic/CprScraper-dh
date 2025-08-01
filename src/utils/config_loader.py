@@ -4,38 +4,38 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class ConfigLoader:
-    _instance = None
-    _config = None
+def load_config(config_file='config/agencies.yaml'):
+    """
+    Loads the YAML configuration from the specified file.
+    """
+    # Determine the absolute path to the config file
+    # This assumes config_loader.py is in src/utils/ and config/ is in the project root
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    full_config_path = os.path.join(project_root, config_file)
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(ConfigLoader, cls).__new__(cls)
-            cls._instance._load_config()
-        return cls._instance
+    if not os.path.exists(full_config_path):
+        logger.error(f"Configuration file not found: {full_config_path}")
+        raise FileNotFoundError(f"Configuration file not found: {full_config_path}")
 
-    def _load_config(self):
-        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'agencies.yaml')
-        try:
-            with open(config_path, 'r') as f:
-                ConfigLoader._config = yaml.safe_load(f)
-            logger.info(f"Configuration loaded successfully from {config_path}")
-        except FileNotFoundError:
-            logger.error(f"Configuration file not found at {config_path}")
-            ConfigLoader._config = {}
-        except yaml.YAMLError as e:
-            logger.error(f"Error parsing YAML configuration file: {e}")
-            ConfigLoader._config = {}
+    try:
+        with open(full_config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        logger.info(f"Configuration loaded successfully from {full_config_path}")
+        return config
+    except yaml.YAMLError as e:
+        logger.error(f"Error parsing YAML configuration file {full_config_path}: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while loading config from {full_config_path}: {e}")
+        raise
 
-    def get_config(self):
-        return ConfigLoader._config
-
-    def get_setting(self, key, default=None):
-        parts = key.split('.')
-        current = self._config
-        for part in parts:
-            if isinstance(current, dict) and part in current:
-                current = current[part]
-            else:
-                return default
-        return current
+if __name__ == '__main__':
+    # Example usage for testing
+    try:
+        config = load_config()
+        print("Config loaded successfully:")
+        # print(yaml.dump(config, indent=2)) # Uncomment to print full config
+        print(f"Number of federal agencies: {len(config.get('federal', {}))}")
+        print(f"Number of state agencies: {len(config.get('states', {}))}")
+    except Exception as e:
+        print(f"Failed to load config: {e}")
