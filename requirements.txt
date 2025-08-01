@@ -1,9 +1,9 @@
-requests
-beautifulsoup4
-selenium
-webdriver-manager
 PyYAML
-Flask
-APScheduler
-SQLAlchemy
 python-dotenv
+Flask
+SQLAlchemy
+APScheduler
+requests
+BeautifulSoup4
+selenium
+psycopg2-binary
