@@ -186,3 +186,315 @@ notification_settings:
   teams:
     enabled: false
     webhook_url: "${TEAMS_WEBHOOK_URL}"
+
+  georgia:
+    name: "Georgia Department of Labor"
+    abbreviation: "GA"
+    base_url: "https://dol.georgia.gov/"
+    forms: []
+    contact:
+      email: "commisioner@gdol.ga.gov"
+
+  hawaii:
+    name: "Hawaii Department of Labor & Industrial Relations"
+    abbreviation: "HI"
+    base_url: "https://labor.hawaii.gov/"
+    forms: []
+    contact:
+      email: "dlir.director@hawaii.gov"
+
+  idaho:
+    name: "Idaho Department of Labor"
+    abbreviation: "ID"
+    base_url: "https://www.labor.idaho.gov/"
+    forms: []
+    contact:
+      email: "boisemail@labor.idaho.gov"
+
+  illinois:
+    name: "Illinois Department of Labor"
+    abbreviation: "IL"
+    base_url: "https://labor.illinois.gov/"
+    forms: []
+    contact:
+      email: "DOL.Questions@Illinois.gov"
+
+  indiana:
+    name: "Indiana Department of Labor"
+    abbreviation: "IN"
+    base_url: "https://www.in.gov/dol"
+    forms: []
+    contact: {}
+
+  iowa:
+    name: "Iowa Workforce Development"
+    abbreviation: "IA"
+    base_url: "https://www.iowaworkforcedevelopment.gov/"
+    forms: []
+    contact: {}
+
+  kansas:
+    name: "Kansas Department of Labor"
+    abbreviation: "KS"
+    base_url: "https://www.dol.ks.gov/"
+    forms: []
+    contact: {}
+
+  kentucky:
+    name: "Kentucky Labor Cabinet"
+    abbreviation: "KY"
+    base_url: "https://labor.ky.gov/"
+    forms: []
+    contact: {}
+
+  louisiana:
+    name: "Louisiana Workforce Commission"
+    abbreviation: "LA"
+    base_url: "https://www.louisianaworks.net/"
+    forms: []
+    contact: {}
+
+  maine:
+    name: "Maine Department of Labor"
+    abbreviation: "ME"
+    base_url: "https://www.maine.gov/labor"
+    forms: []
+    contact:
+      email: "mdol@maine.gov"
+
+  maryland:
+    name: "Maryland Department of Labor"
+    abbreviation: "MD"
+    base_url: "https://www.labor.maryland.gov/"
+    forms: []
+    contact: {}
+
+  massachusetts:
+    name: "Massachusetts Executive Office of Labor & Workforce Development"
+    abbreviation: "MA"
+    base_url: "https://www.mass.gov/orgs/executive-office-of-labor-and-workforce-development"
+    forms: []
+    contact: {}
+
+  michigan:
+    name: "Michigan Department of Labor and Economic Opportunity"
+    abbreviation: "MI"
+    base_url: "https://www.michigan.gov/leo"
+    forms: []
+    contact:
+      email: "whinfo@michigan.gov"
+
+  minnesota:
+    name: "Minnesota Department of Labor and Industry"
+    abbreviation: "MN"
+    base_url: "https://www.dli.mn.gov/"
+    forms: []
+    contact:
+      email: "dli.laborstandards@state.mn.us"
+
+  mississippi:
+    name: "Mississippi Department of Employment Security"
+    abbreviation: "MS"
+    base_url: "https://www.mdes.ms.gov/"
+    forms: []
+    contact: {}
+
+  missouri:
+    name: "Missouri Department of Labor and Industrial Relations"
+    abbreviation: "MO"
+    base_url: "https://www.labor.mo.gov/"
+    forms: []
+    contact:
+      email: "diroffice@labor.mo.gov"
+
+  montana:
+    name: "Montana Department of Labor and Industry"
+    abbreviation: "MT"
+    base_url: "https://www.dli.mt.gov/"
+    forms: []
+    contact: {}
+
+  nebraska:
+    name: "Nebraska Department of Labor"
+    abbreviation: "NE"
+    base_url: "https://dol.nebraska.gov/"
+    forms: []
+    contact: {}
+
+  nevada:
+    name: "Nevada Department of Business and Industry"
+    abbreviation: "NV"
+    base_url: "https://labor.nv.gov/"
+    forms: []
+    contact:
+      email: "mail1@labor.nv.gov"
+
+  new_hampshire:
+    name: "New Hampshire Department of Labor"
+    abbreviation: "NH"
+    base_url: "https://www.nh.gov/labor/"
+    forms: []
+    contact:
+      email: "InspectionDiv@dol.nh.gov"
+
+  new_jersey:
+    name: "New Jersey Department of Labor and Workforce Development"
+    abbreviation: "NJ"
+    base_url: "https://www.nj.gov/labor/"
+    forms: []
+    contact:
+      email: "wage.hour@dol.nj.gov"
+
+  new_mexico:
+    name: "New Mexico Department of Workforce Solutions"
+    abbreviation: "NM"
+    base_url: "https://www.dws.state.nm.us/en-us/"
+    forms: []
+    contact: {}
+
+  new_york:
+    name: "New York State Department of Labor"
+    abbreviation: "NY"
+    base_url: "https://labor.ny.gov/"
+    forms: []
+    contact: {}
+
+  north_carolina:
+    name: "North Carolina Department of Labor"
+    abbreviation: "NC"
+    base_url: "https://www.labor.nc.gov/"
+    forms: []
+    contact: {}
+
+  north_dakota:
+    name: "North Dakota Department of Labor and Human Rights"
+    abbreviation: "ND"
+    base_url: "https://www.nd.gov/labor"
+    forms: []
+    contact:
+      email: "labor@nd.gov"
+
+  ohio:
+    name: "Ohio Department of Commerce"
+    abbreviation: "OH"
+    base_url: "https://com.ohio.gov/"
+    forms: []
+    contact:
+      email: "IC@com.state.oh.us"
+
+  oklahoma:
+    name: "Oklahoma Department of Labor"
+    abbreviation: "OK"
+    base_url: "https://oklahoma.gov/labor.html"
+    forms: []
+    contact:
+      email: "labor.info@labor.ok.gov"
+
+  oregon:
+    name: "Oregon Bureau of Labor and Industries"
+    abbreviation: "OR"
+    base_url: "https://www.oregon.gov/boli"
+    forms: []
+    contact:
+      email: "BOLI_help@boli.oregon.gov"
+
+  pennsylvania:
+    name: "Pennsylvania Department of Labor and Industry"
+    abbreviation: "PA"
+    base_url: "https://www.dli.pa.gov/"
+    forms: []
+    contact:
+      email: "RA-LI-SLMR-LLC@pa.gov"
+
+  rhode_island:
+    name: "Rhode Island Department of Labor and Training"
+    abbreviation: "RI"
+    base_url: "https://www.dlt.ri.gov/"
+    forms: []
+    contact:
+      email: "dlt.laborstandards@dlt.ri.gov"
+
+  south_carolina:
+    name: "South Carolina Department of Labor, Licensing & Regulations"
+    abbreviation: "SC"
+    base_url: "https://llr.sc.gov/"
+    forms: []
+    contact:
+      email: "ContactLLR@llr.sc.gov"
+
+  south_dakota:
+    name: "South Dakota Department of Labor and Regulation"
+    abbreviation: "SD"
+    base_url: "https://dlr.sd.gov/"
+    forms: []
+    contact: {}
+
+  tennessee:
+    name: "Tennessee Department of Labor & Workforce Development"
+    abbreviation: "TN"
+    base_url: "https://www.tn.gov/workforce"
+    forms: []
+    contact: {}
+
+  texas:
+    name: "Texas Workforce Commission"
+    abbreviation: "TX"
+    base_url: "https://www.twc.texas.gov/"
+    forms: []
+    contact: {}
+
+  utah:
+    name: "Utah Labor Commission"
+    abbreviation: "UT"
+    base_url: "https://www.laborcommission.utah.gov/"
+    forms: []
+    contact:
+      email: "laborcom@utah.gov"
+
+  vermont:
+    name: "Vermont Department of Labor"
+    abbreviation: "VT"
+    base_url: "https://labor.vermont.gov/"
+    forms: []
+    contact:
+      email: "Labor.WageHour@vermont.gov"
+
+  virginia:
+    name: "Virginia Department of Labor and Industry"
+    abbreviation: "VA"
+    base_url: "https://www.doli.Virginia.gov/"
+    forms: []
+    contact:
+      email: "webmaster@doli.virginia.gov"
+
+  washington:
+    name: "Washington State Department of Labor and Industries"
+    abbreviation: "WA"
+    base_url: "https://www.lni.wa.gov/"
+    forms: []
+    contact: {}
+
+  west_virginia:
+    name: "West Virginia Division of Labor"
+    abbreviation: "WV"
+    base_url: "https://labor.wv.gov/"
+    forms: []
+    contact:
+      email: "LaborAdministration@wv.gov"
+
+  wisconsin:
+    name: "Wisconsin Department of Workforce Development"
+    abbreviation: "WI"
+    base_url: "https://dwd.wisconsin.gov/"
+    forms: []
+    contact: {}
+
+  wyoming:
+    name: "Wyoming Department of Workforce Services"
+    abbreviation: "WY"
+    base_url: "https://dws.wyo.gov/"
+    forms: []
+    contact: {}
+
+# Note: This is a comprehensive configuration showing the structure for all 50 states and territories.
+# For simplicity, prevailing_wage_url and forms are set to default values if not explicitly found.

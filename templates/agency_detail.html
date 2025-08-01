@@ -41,7 +41,7 @@
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ form.check_frequency }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {% if form.last_scraped_at %}
-                        {{ form.last_scraped_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                        {{ form.last_scraped_at }}
                     {% else %}
                         Never
                     {% endif %}

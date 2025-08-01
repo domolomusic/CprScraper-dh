@@ -15,7 +15,7 @@ from src.monitors.web_scraper import WebScraper
 from src.monitors.change_detector import ChangeDetector
 from src.notifications.notifier import Notifier
 from src.scheduler.monitoring_scheduler import MonitoringScheduler
-from src.api.main import app as flask_app, set_scheduler_instance, set_monitor_function # Import Flask app and setters
+from src.api.main import app as flask_app # Import Flask app and setters
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -173,7 +173,7 @@ def run_scheduler_only():
     """Runs only the monitoring scheduler."""
     logger.info("Starting monitoring scheduler...")
     scheduler = MonitoringScheduler(config_loader, monitor_all_forms)
-    set_scheduler_instance(scheduler) # Pass the scheduler instance to the Flask app
+    # set_scheduler_instance(scheduler) # Pass the scheduler instance to the Flask app
     scheduler.add_monitoring_jobs() # Add jobs based on config/DB
     scheduler.start()
     
@@ -215,7 +215,7 @@ def run_tests():
 
 if __name__ == "__main__":
     # Set the monitor function for the API before any commands are run
-    set_monitor_function(monitor_all_forms)
+    # set_monitor_function(monitor_all_forms) # This line is removed as per the edit hint
 
     parser = argparse.ArgumentParser(description="Payroll Monitoring System CLI")
     parser.add_argument('command', choices=['init-db', 'load-data', 'monitor', 'start', 'dashboard', 'scheduler', 'test'],
